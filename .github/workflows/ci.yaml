@@ -3,16 +3,21 @@ name: CI
 on:
   push:
     branches:
+      - stage
       - master
 
   pull_request:
     branches:
+      - stage
       - master
 
   workflow_dispatch: # button on GitHub Actions to trigger the workflow manually
 
 permissions:
   contents: read
+
+env:
+  IMAGE_NAME: ghcr.io/newtonperazzo/weather-analysis
 
 jobs:
   validate-python:
@@ -46,6 +51,7 @@ jobs:
           OPEN_METEO_FORECAST_URL: https://api.open-meteo.com
           OPEN_METEO_ARCHIVE_URL: https://archive-api.open-meteo.com
           DATABASE_URL: mysql+pymysql://ci_user:ci_password@localhost:3306/weather_analysis_test
+          IMAGE_NAME: ghcr.io/newtonperazzo/weather-analysis
         run: python -m pytest
 
   build-image:
@@ -60,7 +66,7 @@ jobs:
       - name: Build Docker image
         run: docker build --tag weather-analysis:${{ github.sha }} .
   
-  publish-image:
+  publish-production:
     name: Publish Docker image
     runs-on: ubuntu-latest
     needs:
@@ -91,7 +97,7 @@ jobs:
         id: metadata
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ${{ env.IMAGE_NAME }}
           tags: |
             type=sha,prefix=sha-
             type=raw,value=latest
@@ -103,3 +109,39 @@ jobs:
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
+
+  publish-stage:
+    name: Publish stage image
+    runs-on: ubuntu-latest
+    needs:
+      - validate-python
+      - build-image
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v6
+
+      - name: Configure Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Authenticate in GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish stage image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+              ${{ env.IMAGE_NAME }}:stage
+              ${{ env.IMAGE_NAME }}:stage-${{ github.sha }}
