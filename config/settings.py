@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     open_meteo_url: str
     open_meteo_forecast_url: str
     open_meteo_archive_url: str
+    database_url: str
 
     model_config = SettingsConfigDict(
         env_file=".env",

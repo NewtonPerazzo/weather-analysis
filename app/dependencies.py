@@ -4,6 +4,7 @@ from fastapi import Depends
 
 from config.settings import Settings, get_settings
 from app.integration.open_meteo.open_meteo_integration import OpenMeteoIntegration
+from config.db_connection import DBConnectionHandler
 
 
 def get_open_meteo_integration(
@@ -15,6 +16,11 @@ def get_open_meteo_integration(
         open_meteo_archive_url = settings.open_meteo_archive_url
     )
 
+settings = get_settings()
+
+connection_handler = DBConnectionHandler(
+    connection_string=settings.database_url
+)
 
 OpenMeteoDependency = Annotated[
     OpenMeteoIntegration,

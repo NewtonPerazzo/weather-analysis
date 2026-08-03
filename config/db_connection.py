@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 from types import TracebackType
 from typing import Self
 
-class DBConncetionHandler():
-    def __init__(self) -> None:
-        self.__connection_string = 'mysql+pymysql://root:Root*0701@localhost:3306/weather_analysis_db'
+class DBConnectionHandler():
+    def __init__(self, connection_string: str) -> None:
+        self.__connection_string = connection_string
         self.__engine = self.__create_database_engine()
         self.session: Session | None = None
 

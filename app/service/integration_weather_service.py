@@ -29,7 +29,7 @@ class IntegrationWeatherService():
         async with httpx.AsyncClient() as client:
             response = await client.get(url, params=params)
 
-            if response.status_code == 404:
+            if response.status_code == 404 or not response.json().get("results"):
                 raise HTTPException(
                     status_code=404,
                     detail="City not found",
