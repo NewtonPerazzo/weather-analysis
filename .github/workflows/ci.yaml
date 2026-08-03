@@ -16,6 +16,9 @@ on:
 permissions:
   contents: read
 
+env:
+  IMAGE_NAME: ghcr.io/newtonperazzo/weather-analysis
+
 jobs:
   validate-python:
     name: Validate Python
@@ -48,6 +51,7 @@ jobs:
           OPEN_METEO_FORECAST_URL: https://api.open-meteo.com
           OPEN_METEO_ARCHIVE_URL: https://archive-api.open-meteo.com
           DATABASE_URL: mysql+pymysql://ci_user:ci_password@localhost:3306/weather_analysis_test
+          IMAGE_NAME: ghcr.io/newtonperazzo/weather-analysis
         run: python -m pytest
 
   build-image:
@@ -93,7 +97,7 @@ jobs:
         id: metadata
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ${{ env.IMAGE_NAME }}
           tags: |
             type=sha,prefix=sha-
             type=raw,value=latest
@@ -139,5 +143,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:stage
-            ghcr.io/${{ github.repository }}:stage-${{ github.sha }}
+              ${{ env.IMAGE_NAME }}:stage
+              ${{ env.IMAGE_NAME }}:stage-${{ github.sha }}
