@@ -1,6 +1,5 @@
 from fastapi import APIRouter
 from app.service.integration_weather_service import integration_weather_service
-from app.dependencies import OpenMeteoDependency
 from app.model.city_info_model import ForecastResponseModel
 
 

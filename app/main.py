@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from app.router.analysis_router import analysis_router
 from app.router.open_meteo_router import open_meteo_router
 
 app = FastAPI(
@@ -10,3 +11,4 @@ def health_check():
     return {"status": "ok"}
 
 app.include_router(open_meteo_router)
+app.include_router(analysis_router)

@@ -1,6 +1,5 @@
-import httpx
 from fastapi import HTTPException
-from app.model.city_info_model import CityInfoResponseModel, CityInfoModel, ForecastResponseModel
+from app.model.city_info_model import CityInfoResponseModel, CityInfoModel, ForecastResponseModel, CityInfoModel
 from config.settings import get_settings
 from app.dependencies import get_open_meteo_integration
 
@@ -13,12 +12,11 @@ class IntegrationWeatherService():
         self,
         name: str,
         country_code: str,
-        count: int,
-        language: str,
-        format: str
+        count: int = 1,
+        language: str = 'en',
+        format: str = 'json'
     ) -> CityInfoModel:
-        url = f"{self.__open_meteo_integration.open_meteo_url}{self.__open_meteo_integration.open_meteo_search_city_uri}"
-        params = {
+        params: CityInfoModel = {
             "name": name,
             "count": count,
             "language": language,
@@ -26,26 +24,25 @@ class IntegrationWeatherService():
             "format": format
         }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, params=params)
+        response = await self.__open_meteo_integration.get_city_info(params=params)
 
-            if response.status_code == 404 or not response.json().get("results"):
-                raise HTTPException(
-                    status_code=404,
-                    detail="City not found",
-                )
-            response.raise_for_status()
-            city_info = CityInfoResponseModel.model_validate(response.json())
-            return city_info.results[0]
+        if response.status_code == 404 or not response.json().get("results"):
+            raise HTTPException(
+                status_code=404,
+                detail="City not found",
+            )
+        response.raise_for_status()
+        city_info = CityInfoResponseModel.model_validate(response.json())
+        return city_info.results[0]
         
     async def get_city_forecast_info(
         self,
         name: str,
         country_code: str,
-        count: int,
-        language: str,
-        format: str,
-        forecast_days: int
+        count: int = 1,
+        language: str = 'en',
+        format: str = 'json',
+        forecast_days: int = 1
     ):
         city = await self.get_city_info(
             name=name,
@@ -55,8 +52,6 @@ class IntegrationWeatherService():
             format=format
         )
         
-
-        url = f"{self.__open_meteo_integration.open_meteo_forecast_url}{self.__open_meteo_integration.open_meteo_forecast_uri}"
         params = {
             "latitude": city.latitude,
             "longitude": city.longitude,
@@ -95,11 +90,10 @@ class IntegrationWeatherService():
             ]),
         }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            print(response.json())
-            forecast = ForecastResponseModel.model_validate(response.json())
-            return forecast
+        response = await self.__open_meteo_integration.get_city_forecast_info(params=params)
+        response.raise_for_status()
+
+        forecast = ForecastResponseModel.model_validate(response.json())
+        return forecast
 
 integration_weather_service = IntegrationWeatherService()

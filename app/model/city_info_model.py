@@ -122,3 +122,13 @@ class ForecastResponseModel(BaseModel):
     hourly: HourlyWeatherModel
     daily_units: DailyWeatherUnitsModel
     daily: DailyWeatherModel
+
+class CityInfoModel():
+    name: str
+    country_code: str
+    count: int
+    language: str
+    format: str
+
+class CityForecastInfoModel(CityInfoModel):
+    forecast_days: int
