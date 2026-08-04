@@ -1,3 +1,5 @@
+from typing import TypedDict
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -123,12 +125,19 @@ class ForecastResponseModel(BaseModel):
     daily_units: DailyWeatherUnitsModel
     daily: DailyWeatherModel
 
-class CityInfoModel():
+class CityInfoParams(TypedDict):
     name: str
-    country_code: str
     count: int
     language: str
+    countryCode: str
     format: str
 
-class CityForecastInfoModel(CityInfoModel):
+
+class CityForecastInfoParams(TypedDict):
+    latitude: float
+    longitude: float
     forecast_days: int
+    timezone: str
+    current: str
+    hourly: str
+    daily: str

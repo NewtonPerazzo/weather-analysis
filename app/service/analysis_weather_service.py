@@ -1,5 +1,5 @@
 from app.service.integration_weather_service import integration_weather_service
-from datetime import datetime
+from datetime import date, datetime
 from typing import cast
 from app.model.city_analysis_model import CityForecastAnalysisResponseModel, CityHourAnalysisData, CityHourAnalysisResponseModel, CityHourAnalysisInfo, ScoreResponseModel
 from app.model.city_info_model import CurrentWeatherModel, ForecastResponseModel, HourlyWeatherModel
@@ -50,7 +50,12 @@ class AnalysisWeatherService():
             rain_probabily_min_temperature=rain_probabily_min_temperature,
         )
 
-    async def get_forecast_hour_analysis(self, city: str, country_code: str, day: str = None) -> CityHourAnalysisResponseModel:
+    async def get_forecast_hour_analysis(
+        self,
+        city: str,
+        country_code: str,
+        day: date | None = None,
+    ) -> CityHourAnalysisResponseModel:
         city_forecast = await self._integration_weather_service.get_city_forecast_info(
             name=city,
             country_code=country_code,
@@ -59,7 +64,10 @@ class AnalysisWeatherService():
 
         city_forecast_hourly = city_forecast.hourly
 
-        current_hour = None if day else self.get_hourly_score_info_current(city_forecast.current)
+        current_hour = None if day else self.get_hourly_score_info_current(
+            city_forecast.current,
+            city_forecast.hourly,
+        )
 
         if day:
               city_forecast_hourly = self.get_hourly_score_info_other_day(city_forecast, day)
@@ -72,7 +80,11 @@ class AnalysisWeatherService():
             hours=hours,
         )
 
-    def get_hourly_score_info_other_day(self, city_forecast: ForecastResponseModel, day: str) -> CityHourAnalysisData:
+    def get_hourly_score_info_other_day(
+        self,
+        city_forecast: ForecastResponseModel,
+        day: date,
+    ) -> HourlyWeatherModel:
         city_forecast_hourly = HourlyWeatherModel(
             time=[],
             temperature_2m=[],
@@ -85,12 +97,11 @@ class AnalysisWeatherService():
         )
 
         for i in range(len(city_forecast.hourly.time)):
-            requested_date = datetime.fromisoformat(day).date()
             forecast_date = datetime.fromisoformat(
                 city_forecast.hourly.time[i]
             ).date()
 
-            if forecast_date == requested_date:
+            if forecast_date == day:
                 city_forecast_hourly.time.append(city_forecast.hourly.time[i])
                 city_forecast_hourly.temperature_2m.append(city_forecast.hourly.temperature_2m[i])
                 city_forecast_hourly.relative_humidity_2m.append(city_forecast.hourly.relative_humidity_2m[i])
@@ -102,10 +113,23 @@ class AnalysisWeatherService():
 
         return city_forecast_hourly  
         
-    def get_hourly_score_info_current(self, current: CurrentWeatherModel | None) -> CityHourAnalysisData:
-        if not current:return None
+    def get_hourly_score_info_current(
+        self,
+        current: CurrentWeatherModel,
+        hourly: HourlyWeatherModel,
+    ) -> CityHourAnalysisData:
         current_temperature = cast(float, current.temperature_2m)
-        current_rain_probability = cast(float, current.precipitation)
+        current_datetime = datetime.fromisoformat(current.time)
+        current_hour_index = next(
+            index
+            for index, hourly_time in enumerate(hourly.time)
+            if datetime.fromisoformat(hourly_time).date() == current_datetime.date()
+            and datetime.fromisoformat(hourly_time).hour == current_datetime.hour
+        )
+        current_rain_probability = cast(
+            float,
+            hourly.precipitation_probability[current_hour_index],
+        )
         current_wind_speed = cast(float, current.wind_speed_10m)
         current_humidity = cast(int, current.relative_humidity_2m)
         current_apparent_temperature = cast(float, current.apparent_temperature)
@@ -137,7 +161,10 @@ class AnalysisWeatherService():
         for i in range(len(hourly_list.time)):
             hour = hourly_list.time[i]
             temperature = cast(float, hourly_list.temperature_2m[i])
-            rain_probability = cast(float, hourly_list.precipitation[i])
+            rain_probability = cast(
+                float,
+                hourly_list.precipitation_probability[i],
+            )
             wind_speed = cast(float, hourly_list.wind_speed_10m[i])
             humidity = cast(int, hourly_list.relative_humidity_2m[i])
             apparent_temperature = cast(float, hourly_list.apparent_temperature[i])

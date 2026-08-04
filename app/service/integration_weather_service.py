@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from app.model.city_info_model import CityInfoResponseModel, CityInfoModel, ForecastResponseModel, CityInfoModel
+from app.model.city_info_model import CityForecastInfoParams, CityInfoModel, CityInfoParams, CityInfoResponseModel, ForecastResponseModel
 from config.settings import get_settings
 from app.dependencies import get_open_meteo_integration
 
@@ -16,7 +16,7 @@ class IntegrationWeatherService():
         language: str = 'en',
         format: str = 'json'
     ) -> CityInfoModel:
-        params: CityInfoModel = {
+        params: CityInfoParams = {
             "name": name,
             "count": count,
             "language": language,
@@ -43,7 +43,7 @@ class IntegrationWeatherService():
         language: str = 'en',
         format: str = 'json',
         forecast_days: int = 1
-    ):
+    ) -> ForecastResponseModel:
         city = await self.get_city_info(
             name=name,
             country_code=country_code,
@@ -52,7 +52,7 @@ class IntegrationWeatherService():
             format=format
         )
         
-        params = {
+        params: CityForecastInfoParams = {
             "latitude": city.latitude,
             "longitude": city.longitude,
             "forecast_days": forecast_days,

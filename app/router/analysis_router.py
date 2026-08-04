@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter
 from app.service.analysis_weather_service import analysis_weather_service
 from app.model.city_analysis_model import CityForecastAnalysisResponseModel, CityHourAnalysisResponseModel
@@ -28,7 +30,7 @@ async def get_forecast_analysis(
 async def get_forecast_hour_analysis(
     city: str, 
     country_code: str,
-    day: str = None
+    day: date | None = None,
 ) -> CityHourAnalysisResponseModel:
     
     response = await analysis_weather_service.get_forecast_hour_analysis(
