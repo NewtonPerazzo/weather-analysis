@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from app.service.integration_weather_service import integration_weather_service
 from app.model.city_info_model import ForecastResponseModel
 
@@ -19,7 +19,7 @@ async def get_forecast(
     format: str = 'json',
     forecast_days: int = 1
 ) -> ForecastResponseModel:
-    
+
     response = await integration_weather_service.get_city_forecast_info(
         name=name, 
         country_code=country_code,

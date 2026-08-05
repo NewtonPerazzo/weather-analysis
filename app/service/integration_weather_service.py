@@ -1,7 +1,19 @@
-from fastapi import HTTPException
+from json import JSONDecodeError
+from typing import TypeVar
+
+import httpx
+from pydantic import BaseModel, ValidationError
+
+from app.exceptions.exceptions import (
+    CityNotFoundException,
+    InvalidWeatherProviderResponseException,
+)
 from app.model.city_info_model import CityForecastInfoParams, CityInfoModel, CityInfoParams, CityInfoResponseModel, ForecastResponseModel
 from config.settings import get_settings
 from app.dependencies import get_open_meteo_integration
+
+
+ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
 
 class IntegrationWeatherService():
     def __init__(self) -> None:
@@ -26,13 +38,14 @@ class IntegrationWeatherService():
 
         response = await self.__open_meteo_integration.get_city_info(params=params)
 
-        if response.status_code == 404 or not response.json().get("results"):
-            raise HTTPException(
-                status_code=404,
-                detail="City not found",
-            )
-        response.raise_for_status()
-        city_info = CityInfoResponseModel.model_validate(response.json())
+        city_info = self.__validate_provider_response(
+            response=response,
+            response_model=CityInfoResponseModel,
+        )
+
+        if not city_info.results:
+            raise CityNotFoundException(name)
+
         return city_info.results[0]
         
     async def get_city_forecast_info(
@@ -91,9 +104,26 @@ class IntegrationWeatherService():
         }
 
         response = await self.__open_meteo_integration.get_city_forecast_info(params=params)
-        response.raise_for_status()
 
-        forecast = ForecastResponseModel.model_validate(response.json())
+        forecast = self.__validate_provider_response(
+            response=response,
+            response_model=ForecastResponseModel,
+        )
         return forecast
+
+    def __validate_provider_response(
+        self,
+        response: httpx.Response,
+        response_model: type[ResponseModel],
+    ) -> ResponseModel:
+        try:
+            response_data = response.json()
+        except (JSONDecodeError, UnicodeDecodeError) as error:
+            raise InvalidWeatherProviderResponseException() from error
+
+        try:
+            return response_model.model_validate(response_data)
+        except ValidationError as error:
+            raise InvalidWeatherProviderResponseException() from error
 
 integration_weather_service = IntegrationWeatherService()

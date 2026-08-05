@@ -1,5 +1,6 @@
+from app.exceptions.exceptions import ForecastDateUnavailableException, InvalidWeatherProviderResponseException
 from app.service.integration_weather_service import integration_weather_service
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import cast
 from app.model.city_analysis_model import CityForecastAnalysisResponseModel, CityHourAnalysisData, CityHourAnalysisResponseModel, CityHourAnalysisInfo, ScoreResponseModel
 from app.model.city_info_model import CurrentWeatherModel, ForecastResponseModel, HourlyWeatherModel
@@ -19,6 +20,9 @@ class AnalysisWeatherService():
             name=city,
             country_code=country_code
         )
+
+        self._validate_hourly_data(city_forecast.hourly)
+
         max_temperature = max(city_forecast.hourly.temperature_2m)
         min_temperature = min(city_forecast.hourly.temperature_2m)
 
@@ -62,6 +66,8 @@ class AnalysisWeatherService():
             forecast_days= 1 if not day else 16
         )
 
+        self._validate_hourly_data(city_forecast.hourly)
+
         city_forecast_hourly = city_forecast.hourly
 
         current_hour = None if day else self.get_hourly_score_info_current(
@@ -70,7 +76,9 @@ class AnalysisWeatherService():
         )
 
         if day:
-              city_forecast_hourly = self.get_hourly_score_info_other_day(city_forecast, day)
+            if day < datetime.now().date() or day > datetime.now().date() + timedelta(days=15):
+                raise ForecastDateUnavailableException(date=day)
+            city_forecast_hourly = self.get_hourly_score_info_other_day(city_forecast, day)
 
 
         hours = self.get_hourly_score_info_list(city_forecast_hourly)
@@ -112,6 +120,21 @@ class AnalysisWeatherService():
                 city_forecast_hourly.wind_speed_10m.append(city_forecast.hourly.wind_speed_10m[i])
 
         return city_forecast_hourly  
+
+    def _validate_hourly_data(self, hourly: HourlyWeatherModel) -> None:
+        list_lengths = {
+            len(hourly.time),
+            len(hourly.temperature_2m),
+            len(hourly.relative_humidity_2m),
+            len(hourly.apparent_temperature),
+            len(hourly.precipitation_probability),
+            len(hourly.precipitation),
+            len(hourly.weather_code),
+            len(hourly.wind_speed_10m),
+        }
+
+        if 0 in list_lengths or len(list_lengths) != 1:
+            raise InvalidWeatherProviderResponseException()
         
     def get_hourly_score_info_current(
         self,
