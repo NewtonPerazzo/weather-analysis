@@ -1,7 +1,9 @@
 import httpx
 from app.exceptions.exceptions import InvalidWeatherProviderResponseException
 from app.model.city_info_model import CityForecastInfoParams, CityInfoParams
+import logging
 
+logger = logging.getLogger(__name__)
 
 class OpenMeteoIntegration():
     def __init__(
@@ -29,7 +31,8 @@ class OpenMeteoIntegration():
                 response.raise_for_status()
                 return response
             except (httpx.RequestError, httpx.HTTPStatusError) as error:
-                raise InvalidWeatherProviderResponseException() from error
+                logger.exception("Failed to request data from Open-Meteo")
+                raise InvalidWeatherProviderResponseException()
         
     async def get_city_forecast_info(
         self,
@@ -43,4 +46,5 @@ class OpenMeteoIntegration():
                 response.raise_for_status()
                 return response
             except (httpx.RequestError, httpx.HTTPStatusError) as error:
+                logger.exception("Failed to request data from Open-Meteo")
                 raise InvalidWeatherProviderResponseException() from error
