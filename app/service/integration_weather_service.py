@@ -8,7 +8,7 @@ from app.exceptions.exceptions import (
     CityNotFoundException,
     InvalidWeatherProviderResponseException,
 )
-from app.model.city_info_model import CityForecastInfoParams, CityInfoModel, CityInfoParams, CityInfoResponseModel, ForecastResponseModel
+from app.model.city_info_model import CityForecastInfoParams, CityInfoModel, CityInfoParams, CityInfoResponseModel, ForecastResponseModel, SearchCityRequest
 from config.settings import get_settings
 from app.dependencies import get_open_meteo_integration
 
@@ -22,19 +22,9 @@ class IntegrationWeatherService():
 
     async def get_city_info(
         self,
-        name: str,
-        country_code: str,
-        count: int = 1,
-        language: str = 'en',
-        format: str = 'json'
+        city_request: SearchCityRequest
     ) -> CityInfoModel:
-        params: CityInfoParams = {
-            "name": name,
-            "count": count,
-            "language": language,
-            "countryCode": country_code,
-            "format": format
-        }
+        params: CityInfoParams = SearchCityRequest.model_dump(city_request)
 
         response = await self.__open_meteo_integration.get_city_info(params=params)
 
@@ -44,31 +34,20 @@ class IntegrationWeatherService():
         )
 
         if not city_info.results:
-            raise CityNotFoundException(name)
+            raise CityNotFoundException(city_name=city_request.name)
 
         return city_info.results[0]
         
     async def get_city_forecast_info(
         self,
-        name: str,
-        country_code: str,
-        count: int = 1,
-        language: str = 'en',
-        format: str = 'json',
-        forecast_days: int = 1
+        city_request: SearchCityRequest
     ) -> ForecastResponseModel:
-        city = await self.get_city_info(
-            name=name,
-            country_code=country_code,
-            count=count,
-            language=language,
-            format=format
-        )
+        city = await self.get_city_info(city_request=city_request)
         
         params: CityForecastInfoParams = {
             "latitude": city.latitude,
             "longitude": city.longitude,
-            "forecast_days": forecast_days,
+            "forecast_days": city_request.forecast_days,
             "timezone": city.timezone,
 
             "current": ",".join([

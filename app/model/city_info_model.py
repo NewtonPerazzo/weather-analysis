@@ -2,6 +2,13 @@ from typing import TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
+class SearchCityRequest(BaseModel):
+    name: str
+    country_code: str
+    count: int = 1
+    language: str = 'en'
+    format: str = 'json'
+    forecast_days: int = 1
 
 class CityInfoModel(BaseModel):
     model_config = ConfigDict(extra="ignore")

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from app.service.integration_weather_service import integration_weather_service
-from app.model.city_info_model import ForecastResponseModel
+from app.model.city_info_model import ForecastResponseModel, SearchCityRequest
 
 
 open_meteo_router = APIRouter(
@@ -8,24 +8,12 @@ open_meteo_router = APIRouter(
     tags=["Open Meteo Info"]
 )
 
-@open_meteo_router.get(
+@open_meteo_router.post(
     "/search-city",
 )
 async def get_forecast(
-    name: str,
-    country_code: str,
-    count: int = 1,
-    language: str = 'en',
-    format: str = 'json',
-    forecast_days: int = 1
+    city_request: SearchCityRequest
 ) -> ForecastResponseModel:
 
-    response = await integration_weather_service.get_city_forecast_info(
-        name=name, 
-        country_code=country_code,
-        count=count,
-        language=language,
-        format=format,
-        forecast_days=forecast_days
-    )
+    response = await integration_weather_service.get_city_forecast_info(city_request=city_request)
     return response
