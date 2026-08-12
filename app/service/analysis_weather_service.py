@@ -3,7 +3,7 @@ from app.service.integration_weather_service import integration_weather_service
 from datetime import date, datetime, timedelta
 from typing import cast
 from app.model.city_analysis_model import CityForecastAnalysisResponseModel, CityHourAnalysisData, CityHourAnalysisResponseModel, CityHourAnalysisInfo, ScoreResponseModel
-from app.model.city_info_model import CurrentWeatherModel, ForecastResponseModel, HourlyWeatherModel
+from app.model.city_info_model import CurrentWeatherModel, ForecastResponseModel, HourlyWeatherModel, SearchCityRequest
 from app.util.score import calculate_weather_score
 
 class AnalysisWeatherService():
@@ -16,10 +16,11 @@ class AnalysisWeatherService():
             country_code: str, 
         ) -> CityForecastAnalysisResponseModel:
 
-        city_forecast = await self._integration_weather_service.get_city_forecast_info(
+        city_search = SearchCityRequest(
             name=city,
             country_code=country_code
         )
+        city_forecast = await self._integration_weather_service.get_city_forecast_info(city_request=city_search)
 
         self._validate_hourly_data(city_forecast.hourly)
 
@@ -60,11 +61,12 @@ class AnalysisWeatherService():
         country_code: str,
         day: date | None = None,
     ) -> CityHourAnalysisResponseModel:
-        city_forecast = await self._integration_weather_service.get_city_forecast_info(
+        city_search = SearchCityRequest(
             name=city,
             country_code=country_code,
             forecast_days= 1 if not day else 16
         )
+        city_forecast = await self._integration_weather_service.get_city_forecast_info(city_request=city_search)
 
         self._validate_hourly_data(city_forecast.hourly)
 
