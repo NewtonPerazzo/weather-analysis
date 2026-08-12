@@ -1,8 +1,19 @@
+from json import JSONDecodeError
+from typing import TypeVar
+
 import httpx
-from fastapi import HTTPException
-from app.model.city_info_model import CityInfoResponseModel, CityInfoModel, ForecastResponseModel
+from pydantic import BaseModel, ValidationError
+
+from app.exceptions.exceptions import (
+    CityNotFoundException,
+    InvalidWeatherProviderResponseException,
+)
+from app.model.city_info_model import CityForecastInfoParams, CityInfoModel, CityInfoParams, CityInfoResponseModel, ForecastResponseModel, SearchCityRequest
 from config.settings import get_settings
 from app.dependencies import get_open_meteo_integration
+
+
+ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
 
 class IntegrationWeatherService():
     def __init__(self) -> None:
@@ -11,56 +22,32 @@ class IntegrationWeatherService():
 
     async def get_city_info(
         self,
-        name: str,
-        country_code: str,
-        count: int,
-        language: str,
-        format: str
+        city_request: SearchCityRequest
     ) -> CityInfoModel:
-        url = f"{self.__open_meteo_integration.open_meteo_url}{self.__open_meteo_integration.open_meteo_search_city_uri}"
-        params = {
-            "name": name,
-            "count": count,
-            "language": language,
-            "countryCode": country_code,
-            "format": format
-        }
+        params: CityInfoParams = SearchCityRequest.model_dump(city_request)
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, params=params)
+        response = await self.__open_meteo_integration.get_city_info(params=params)
 
-            if response.status_code == 404 or not response.json().get("results"):
-                raise HTTPException(
-                    status_code=404,
-                    detail="City not found",
-                )
-            response.raise_for_status()
-            city_info = CityInfoResponseModel.model_validate(response.json())
-            return city_info.results[0]
+        city_info = self.__validate_provider_response(
+            response=response,
+            response_model=CityInfoResponseModel,
+        )
+
+        if not city_info.results:
+            raise CityNotFoundException(city_name=city_request.name)
+
+        return city_info.results[0]
         
     async def get_city_forecast_info(
         self,
-        name: str,
-        country_code: str,
-        count: int,
-        language: str,
-        format: str,
-        forecast_days: int
-    ):
-        city = await self.get_city_info(
-            name=name,
-            country_code=country_code,
-            count=count,
-            language=language,
-            format=format
-        )
+        city_request: SearchCityRequest
+    ) -> ForecastResponseModel:
+        city = await self.get_city_info(city_request=city_request)
         
-
-        url = f"{self.__open_meteo_integration.open_meteo_forecast_url}{self.__open_meteo_integration.open_meteo_forecast_uri}"
-        params = {
+        params: CityForecastInfoParams = {
             "latitude": city.latitude,
             "longitude": city.longitude,
-            "forecast_days": forecast_days,
+            "forecast_days": city_request.forecast_days,
             "timezone": city.timezone,
 
             "current": ",".join([
@@ -95,11 +82,27 @@ class IntegrationWeatherService():
             ]),
         }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            print(response.json())
-            forecast = ForecastResponseModel.model_validate(response.json())
-            return forecast
+        response = await self.__open_meteo_integration.get_city_forecast_info(params=params)
+
+        forecast = self.__validate_provider_response(
+            response=response,
+            response_model=ForecastResponseModel,
+        )
+        return forecast
+
+    def __validate_provider_response(
+        self,
+        response: httpx.Response,
+        response_model: type[ResponseModel],
+    ) -> ResponseModel:
+        try:
+            response_data = response.json()
+        except (JSONDecodeError, UnicodeDecodeError) as error:
+            raise InvalidWeatherProviderResponseException() from error
+
+        try:
+            return response_model.model_validate(response_data)
+        except ValidationError as error:
+            raise InvalidWeatherProviderResponseException() from error
 
 integration_weather_service = IntegrationWeatherService()
