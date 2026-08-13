@@ -1,6 +1,6 @@
 from typing import TypedDict
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 class SearchCityRequest(BaseModel):
     name: str
@@ -29,7 +29,7 @@ class CityInfoModel(BaseModel):
 class CityInfoResponseModel(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    results: list[CityInfoModel]
+    results: list[CityInfoModel] = Field(default_factory=list)
     generationtime_ms: float
 
 

@@ -24,7 +24,13 @@ class IntegrationWeatherService():
         self,
         city_request: SearchCityRequest
     ) -> CityInfoModel:
-        params: CityInfoParams = SearchCityRequest.model_dump(city_request)
+        params: CityInfoParams = {
+            "name": city_request.name,
+            "count": city_request.count,
+            "language": city_request.language,
+            "format": city_request.format,
+            "countryCode": city_request.country_code,
+        }
 
         response = await self.__open_meteo_integration.get_city_info(params=params)
 
