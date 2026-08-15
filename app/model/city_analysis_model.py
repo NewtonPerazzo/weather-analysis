@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 class CityForecastAnalysisResponseModel(BaseModel):
@@ -30,3 +32,5 @@ class CityHourAnalysisResponseModel(BaseModel):
 class ScoreResponseModel(BaseModel):
     score: int
     reasons: list[str]
+
+FilterTime = Literal["morning", "night", "evening", "dawn"]

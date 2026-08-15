@@ -1,8 +1,8 @@
 from app.exceptions.exceptions import ForecastDateUnavailableException, InvalidWeatherProviderResponseException
 from app.service.integration_weather_service import integration_weather_service
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, time
 from typing import cast
-from app.model.city_analysis_model import CityForecastAnalysisResponseModel, CityHourAnalysisData, CityHourAnalysisResponseModel, CityHourAnalysisInfo, ScoreResponseModel
+from app.model.city_analysis_model import CityForecastAnalysisResponseModel, CityHourAnalysisData, CityHourAnalysisResponseModel, CityHourAnalysisInfo, FilterTime, ScoreResponseModel
 from app.model.city_info_model import CurrentWeatherModel, ForecastResponseModel, HourlyWeatherModel, SearchCityRequest
 from app.util.score import calculate_weather_score
 
@@ -59,6 +59,7 @@ class AnalysisWeatherService():
         self,
         city: str,
         country_code: str,
+        filter_time: FilterTime | None,
         day: date | None = None,
     ) -> CityHourAnalysisResponseModel:
         city_search = SearchCityRequest(
@@ -74,7 +75,7 @@ class AnalysisWeatherService():
 
         current_hour = None if day else self.get_hourly_score_info_current(
             city_forecast.current,
-            city_forecast.hourly,
+            city_forecast.hourly
         )
 
         if day:
@@ -82,62 +83,21 @@ class AnalysisWeatherService():
                 raise ForecastDateUnavailableException(date=day)
             city_forecast_hourly = self.get_hourly_score_info_other_day(city_forecast, day)
 
-
         hours = self.get_hourly_score_info_list(city_forecast_hourly)
+        new_hours: list[CityHourAnalysisData] = []
+        if filter_time:
+            new_hours = self._get_filtered_hours(hours=hours, filter_time=filter_time)
+            if current_hour:
+                is_in_filter_range = self._get_is_filter_ranger(current_hour.hour, filter_time)
+
+                if not is_in_filter_range:
+                    current_hour = None
 
         return CityHourAnalysisResponseModel(
             current_hour=current_hour,
-            hours=hours,
+            hours=new_hours if filter_time else hours
         )
 
-    def get_hourly_score_info_other_day(
-        self,
-        city_forecast: ForecastResponseModel,
-        day: date,
-    ) -> HourlyWeatherModel:
-        city_forecast_hourly = HourlyWeatherModel(
-            time=[],
-            temperature_2m=[],
-            relative_humidity_2m=[],
-            apparent_temperature=[],
-            precipitation_probability=[],
-            precipitation=[],
-            weather_code=[],
-            wind_speed_10m=[]
-        )
-
-        for i in range(len(city_forecast.hourly.time)):
-            forecast_date = datetime.fromisoformat(
-                city_forecast.hourly.time[i]
-            ).date()
-
-            if forecast_date == day:
-                city_forecast_hourly.time.append(city_forecast.hourly.time[i])
-                city_forecast_hourly.temperature_2m.append(city_forecast.hourly.temperature_2m[i])
-                city_forecast_hourly.relative_humidity_2m.append(city_forecast.hourly.relative_humidity_2m[i])
-                city_forecast_hourly.apparent_temperature.append(city_forecast.hourly.apparent_temperature[i])
-                city_forecast_hourly.precipitation_probability.append(city_forecast.hourly.precipitation_probability[i])
-                city_forecast_hourly.precipitation.append(city_forecast.hourly.precipitation[i])
-                city_forecast_hourly.weather_code.append(city_forecast.hourly.weather_code[i])
-                city_forecast_hourly.wind_speed_10m.append(city_forecast.hourly.wind_speed_10m[i])
-
-        return city_forecast_hourly  
-
-    def _validate_hourly_data(self, hourly: HourlyWeatherModel) -> None:
-        list_lengths = {
-            len(hourly.time),
-            len(hourly.temperature_2m),
-            len(hourly.relative_humidity_2m),
-            len(hourly.apparent_temperature),
-            len(hourly.precipitation_probability),
-            len(hourly.precipitation),
-            len(hourly.weather_code),
-            len(hourly.wind_speed_10m),
-        }
-
-        if 0 in list_lengths or len(list_lengths) != 1:
-            raise InvalidWeatherProviderResponseException()
-        
     def get_hourly_score_info_current(
         self,
         current: CurrentWeatherModel,
@@ -178,13 +138,13 @@ class AnalysisWeatherService():
                 apparent_temperature=current_apparent_temperature,
             )
         )
-    
-    
+        
     def get_hourly_score_info_list(self, hourly_list: HourlyWeatherModel) -> list[CityHourAnalysisData]:
         response: list[CityHourAnalysisData] = []
 
         for i in range(len(hourly_list.time)):
             hour = hourly_list.time[i]
+
             temperature = cast(float, hourly_list.temperature_2m[i])
             rain_probability = cast(
                 float,
@@ -201,19 +161,103 @@ class AnalysisWeatherService():
                 humidity=humidity,
             )
 
-            response.append(CityHourAnalysisData(
-                hour=datetime.fromisoformat(hour).time().strftime('%H:%M'),
-                score=result.score,
-                reason=result.reasons,
-                info=CityHourAnalysisInfo(
-                    temperature=temperature,
-                    rain_probability=rain_probability,
-                    wind_speed=wind_speed,
-                    humidity=humidity,
-                    apparent_temperature=apparent_temperature
+            response.append(
+                CityHourAnalysisData(
+                    hour=datetime.fromisoformat(hour).time().strftime('%H:%M'),
+                    score=result.score,
+                    reason=result.reasons,
+                    info=CityHourAnalysisInfo(
+                        temperature=temperature,
+                        rain_probability=rain_probability,
+                        wind_speed=wind_speed,
+                        humidity=humidity,
+                        apparent_temperature=apparent_temperature
+                    )
                 )
-            ))
+            )
         
         return response
 
+    def get_hourly_score_info_other_day(
+        self,
+        city_forecast: ForecastResponseModel,
+        day: date,
+    ) -> HourlyWeatherModel:
+        city_forecast_hourly = HourlyWeatherModel(
+            time=[],
+            temperature_2m=[],
+            relative_humidity_2m=[],
+            apparent_temperature=[],
+            precipitation_probability=[],
+            precipitation=[],
+            weather_code=[],
+            wind_speed_10m=[]
+        )
+
+        for i in range(len(city_forecast.hourly.time)):
+            forecast_date = datetime.fromisoformat(
+                city_forecast.hourly.time[i]
+            ).date()
+
+            if forecast_date == day:
+                hourly_time = city_forecast.hourly.time[i]
+                hourly_temperature_2m = city_forecast.hourly.temperature_2m[i]
+                hourly_relative_humidity_2m = city_forecast.hourly.relative_humidity_2m[i]
+                hourly_precipitation = city_forecast.hourly.precipitation[i]
+                hourly_weather_code = city_forecast.hourly.weather_code[i]
+                hourly_wind_speed_10m = city_forecast.hourly.wind_speed_10m[i]
+
+                city_forecast_hourly.time.append(hourly_time)
+                city_forecast_hourly.temperature_2m.append(hourly_temperature_2m)
+                city_forecast_hourly.relative_humidity_2m.append(hourly_relative_humidity_2m)
+                city_forecast_hourly.apparent_temperature.append(city_forecast.hourly.apparent_temperature[i])
+                city_forecast_hourly.precipitation_probability.append(city_forecast.hourly.precipitation_probability[i])
+                city_forecast_hourly.precipitation.append(hourly_precipitation)
+                city_forecast_hourly.weather_code.append(hourly_weather_code)
+                city_forecast_hourly.wind_speed_10m.append(hourly_wind_speed_10m)
+
+        return city_forecast_hourly  
+
+    def _get_filtered_hours(self, filter_time: FilterTime, hours: list[CityHourAnalysisData]) -> list[CityHourAnalysisData]:
+        filtered_hours: list[CityHourAnalysisData] = []
+        for hour in hours:
+            is_in_filter_range = self._get_is_filter_ranger(hour.hour, filter_time) 
+
+            if is_in_filter_range:
+                filtered_hours.append(hour)
+        return filtered_hours
+
+    def _get_is_filter_ranger(self, hour: str, filter_time: FilterTime) -> bool:
+        time_hour = datetime.strptime(hour, "%H:%M").time()
+        filter_range = self._get_time_interval(filter_time)
+        is_in_filter_range = time_hour >= filter_range[0] and time_hour <= filter_range[1]
+
+        return is_in_filter_range
+    
+    def _get_time_interval(self, time_hour: FilterTime) -> tuple[time, time]:
+        match time_hour:
+            case 'morning':
+                return [time(5, 0, 0), time(11, 59, 59)]
+            case 'evening':
+                return [time(12, 00, 00), time(17, 59, 00)]
+            case 'night':
+                return [time(18, 00, 00), time(23, 59, 00)]
+            case 'dawn':
+                return [time(00,00, 00), time(4, 59, 00)]
+
+    def _validate_hourly_data(self, hourly: HourlyWeatherModel) -> None:
+        list_lengths = {
+            len(hourly.time),
+            len(hourly.temperature_2m),
+            len(hourly.relative_humidity_2m),
+            len(hourly.apparent_temperature),
+            len(hourly.precipitation_probability),
+            len(hourly.precipitation),
+            len(hourly.weather_code),
+            len(hourly.wind_speed_10m),
+        }
+
+        if 0 in list_lengths or len(list_lengths) != 1:
+            raise InvalidWeatherProviderResponseException()
+        
 analysis_weather_service = AnalysisWeatherService()

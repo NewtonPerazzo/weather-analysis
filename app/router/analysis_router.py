@@ -2,7 +2,7 @@ from datetime import date
 
 from fastapi import APIRouter, HTTPException
 from app.service.analysis_weather_service import analysis_weather_service
-from app.model.city_analysis_model import CityForecastAnalysisResponseModel, CityHourAnalysisResponseModel
+from app.model.city_analysis_model import CityForecastAnalysisResponseModel, CityHourAnalysisResponseModel, FilterTime
 
 
 analysis_router = APIRouter(
@@ -34,11 +34,13 @@ async def get_forecast_hour_analysis(
     city: str, 
     country_code: str,
     day: date | None = None,
+    filter: FilterTime | None = None
 ) -> CityHourAnalysisResponseModel:
 
     response = await analysis_weather_service.get_forecast_hour_analysis(
         city=city, 
         country_code=country_code,
-        day=day
+        day=day,
+        filter_time=filter
     )
     return response
