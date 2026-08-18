@@ -6,13 +6,6 @@ import pytest
 from app.exceptions.exceptions import CityNotFoundException
 from app.model.city_info_model import SearchCityRequest
 from app.service.integration_weather_service import IntegrationWeatherService
-import app.service.integration_weather_service as weather_service_module
-
-
-@pytest.fixture(autouse=True)
-def fake_redis_cache(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(weather_service_module, "get_data_redis", lambda key: None)
-    monkeypatch.setattr(weather_service_module, "set_data_redis", lambda key, value, time: None)
 
 
 class FakeOpenMeteoIntegration:
