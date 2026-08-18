@@ -12,6 +12,8 @@ from app.model.city_info_model import CityForecastInfoParams, CityInfoModel, Cit
 from config.settings import get_settings
 from app.dependencies import get_open_meteo_integration
 
+from config.redis import get_data_redis, set_data_redis
+
 
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
 
@@ -24,6 +26,19 @@ class IntegrationWeatherService():
         self,
         city_request: SearchCityRequest
     ) -> CityInfoModel:
+        redis_key = f'\
+        {city_request.name.lower().replace(" ", "_").strip()}_\
+        {city_request.country_code.lower().strip()}_\
+        {city_request.forecast_days}\
+        {city_request.count}'
+
+        cached_data = get_data_redis(redis_key)
+
+        if cached_data:
+            city_data = CityInfoModel.model_validate(cached_data)
+            return city_data
+
+        
         params: CityInfoParams = {
             "name": city_request.name,
             "count": city_request.count,
@@ -42,7 +57,9 @@ class IntegrationWeatherService():
         if not city_info.results:
             raise CityNotFoundException(city_name=city_request.name)
 
-        return city_info.results[0]
+        data = city_info.results[0]
+        set_data_redis(key=redis_key, value=data.model_dump_json(), time=120)
+        return data
         
     async def get_city_forecast_info(
         self,
