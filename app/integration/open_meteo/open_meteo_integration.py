@@ -10,7 +10,7 @@ class OpenMeteoIntegration():
             self, 
             open_meteo_url: str, 
             open_meteo_forecast_url: str,
-            open_meteo_archive_url: str
+            open_meteo_archive_url: str,
         ):
         self.open_meteo_url = open_meteo_url
         self.open_meteo_forecast_url = open_meteo_forecast_url

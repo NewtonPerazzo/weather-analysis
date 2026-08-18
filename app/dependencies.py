@@ -14,7 +14,6 @@ def get_open_meteo_integration(
         open_meteo_url = settings.open_meteo_url,
         open_meteo_forecast_url = settings.open_meteo_forecast_url,
         open_meteo_archive_url = settings.open_meteo_archive_url,
-        redis_url = settings.redis_url
     )
 
 settings = get_settings()
