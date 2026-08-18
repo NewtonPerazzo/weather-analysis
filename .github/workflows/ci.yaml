@@ -51,6 +51,7 @@ jobs:
           OPEN_METEO_FORECAST_URL: https://api.open-meteo.com
           OPEN_METEO_ARCHIVE_URL: https://archive-api.open-meteo.com
           DATABASE_URL: mysql+pymysql://ci_user:ci_password@localhost:3306/weather_analysis_test
+          REDIS_URL: redis://localhost:6379/0
           IMAGE_NAME: ghcr.io/newtonperazzo/weather-analysis
         run: python -m pytest
 
