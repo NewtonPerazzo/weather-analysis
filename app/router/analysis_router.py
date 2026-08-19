@@ -3,7 +3,9 @@ from datetime import date
 from fastapi import APIRouter, HTTPException
 from app.service.analysis_weather_service import analysis_weather_service
 from app.model.city_analysis_model import CityForecastAnalysisResponseModel, CityHourAnalysisResponseModel, FilterTime
+import logging
 
+logger = logging.getLogger(__name__)
 
 analysis_router = APIRouter(
     prefix="",
@@ -17,6 +19,12 @@ async def get_forecast_analysis(
     city: str, 
     country_code: str,
 ) -> CityForecastAnalysisResponseModel:
+    logger.info(
+        "REQUEST RECEIVED: city=%s country=%s",
+        city,
+        country_code,
+    )
+
 
     if not city or not country_code:
         raise HTTPException(status_code=400, detail="City and country code are required parameters.")
