@@ -21,3 +21,10 @@ class ForecastDateUnavailableException(Exception):
     def __init__(self, date: date):
         self.message = f"Forecast date '{date}' is unavailable."
         super().__init__(self.message)
+
+class CityInfoAlreadyExistsInDBException(Exception):
+    """Exception raised when the city info request already exists in DB."""
+
+    def __init__(self, city: str):
+        self.message = f"City info '{city}' already exists in DB."
+        super().__init__(self.message)

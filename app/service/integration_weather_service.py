@@ -9,6 +9,7 @@ from app.exceptions.exceptions import (
     InvalidWeatherProviderResponseException,
 )
 from app.model.city_info_model import CityForecastInfoParams, CityInfoModel, CityInfoParams, CityInfoResponseModel, ForecastResponseModel, SearchCityRequest
+from app.service.database_city_info_service import DatabaseCityInfo
 from config.settings import get_settings
 from app.dependencies import get_open_meteo_integration
 
@@ -21,22 +22,23 @@ class IntegrationWeatherService():
     def __init__(self) -> None:
         settings = get_settings()
         self.__open_meteo_integration = get_open_meteo_integration(settings)
+        self.__database_info_city_service = DatabaseCityInfo()
 
     async def get_city_info(
         self,
         city_request: SearchCityRequest
     ) -> CityInfoModel:
-        redis_key = f'\
-        {city_request.name.lower().replace(" ", "_").strip()}_\
-        {city_request.country_code.lower().strip()}_\
-        {city_request.forecast_days}\
-        {city_request.count}'
+        redis_key = f'{city_request.name.lower().replace(" ", "_").strip()}_{city_request.country_code.lower().strip()}_{city_request.forecast_days}{city_request.count}'
 
         cached_data = get_data_redis(redis_key)
 
         if cached_data:
             city_data = CityInfoModel.model_validate(cached_data)
             return city_data
+
+        city_database = self.__database_info_city_service.get_city_info_by_key(key=redis_key)
+        if city_database:
+           return city_database
 
         
         params: CityInfoParams = {
@@ -58,7 +60,9 @@ class IntegrationWeatherService():
             raise CityNotFoundException(city_name=city_request.name)
 
         data = city_info.results[0]
+        data.id = redis_key
         set_data_redis(key=redis_key, value=data.model_dump_json(), time=120)
+        self.__database_info_city_service.add_city_info(city=data, key=redis_key)
         return data
         
     async def get_city_forecast_info(

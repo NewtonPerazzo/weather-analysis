@@ -13,7 +13,7 @@ class SearchCityRequest(BaseModel):
 class CityInfoModel(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    id: int
+    id: str
     name: str
     latitude: float
     longitude: float

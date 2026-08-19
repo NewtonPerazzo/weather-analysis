@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     open_meteo_forecast_url: str
     open_meteo_archive_url: str
     database_url: str
-    redis_url: str = "redis://localhost:6379/0"
+    redis_url: str = "redis://redis:6379/0"
 
     model_config = SettingsConfigDict(
         env_file=".env",

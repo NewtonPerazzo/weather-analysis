@@ -18,8 +18,9 @@ def get_open_meteo_integration(
 
 settings = get_settings()
 
-connection_handler = DBConnectionHandler(
-    connection_string=settings.database_url
+def get_connection_handler() -> DBConnectionHandler:
+    return DBConnectionHandler(
+        connection_string=settings.database_url,
 )
 
 OpenMeteoDependency = Annotated[
