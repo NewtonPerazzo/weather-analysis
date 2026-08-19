@@ -1,7 +1,6 @@
 from config.base import Base
 from datetime import datetime, timedelta, timezone
 
-from config.base import Base
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import DateTime, String
 

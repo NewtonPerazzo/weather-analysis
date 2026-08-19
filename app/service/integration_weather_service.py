@@ -10,6 +10,7 @@ from app.exceptions.exceptions import (
 )
 from app.model.city_info_model import CityForecastInfoParams, CityInfoModel, CityInfoParams, CityInfoResponseModel, ForecastResponseModel, SearchCityRequest
 from app.service.database_city_info_service import data_base_info_service
+from app.service.database_weather_forecast_service import database_weather_forecast_service
 from config.settings import get_settings
 from app.dependencies import get_open_meteo_integration
 
@@ -23,6 +24,7 @@ class IntegrationWeatherService():
         settings = get_settings()
         self.__open_meteo_integration = get_open_meteo_integration(settings)
         self.__database_info_city_service = data_base_info_service
+        self.__database_weather_forecast_service = database_weather_forecast_service
 
     async def get_city_info(
         self,
@@ -67,10 +69,45 @@ class IntegrationWeatherService():
         
     async def get_city_forecast_info(
         self,
-        city_request: SearchCityRequest
+        city_request: SearchCityRequest,
     ) -> ForecastResponseModel:
-        city = await self.get_city_info(city_request=city_request)
-        
+        city = await self.get_city_info(
+            city_request=city_request
+        )
+
+        forecast_redis_key = (
+            f"forecast:"
+            f"{city_request.name.lower().replace(' ', '_').strip()}:"
+            f"{city_request.country_code.lower().strip()}:"
+            f"{city_request.forecast_days}"
+        )
+
+        cached_forecast = get_data_redis(
+            key=forecast_redis_key
+        )
+
+        if cached_forecast:
+
+            return ForecastResponseModel.model_validate(
+                cached_forecast
+            )
+
+        database_forecast = (
+            self.__database_weather_forecast_service.get_forecast(
+                city_id=city.id,
+                forecast_days=city_request.forecast_days,
+            )
+        )
+
+        if database_forecast:
+            set_data_redis(
+                key=forecast_redis_key,
+                value=database_forecast.model_dump_json(),
+                time=3600,
+            )
+
+            return database_forecast
+
         params: CityForecastInfoParams = {
             "latitude": city.latitude,
             "longitude": city.longitude,
@@ -109,12 +146,30 @@ class IntegrationWeatherService():
             ]),
         }
 
-        response = await self.__open_meteo_integration.get_city_forecast_info(params=params)
+        response = await (
+            self.__open_meteo_integration
+            .get_city_forecast_info(
+                params=params
+            )
+        )
 
         forecast = self.__validate_provider_response(
             response=response,
             response_model=ForecastResponseModel,
         )
+
+        self.__database_weather_forecast_service.add_forecast(
+            city_id=city.id,
+            forecast_days=city_request.forecast_days,
+            forecast=forecast,
+        )
+
+        set_data_redis(
+            key=forecast_redis_key,
+            value=forecast.model_dump_json(),
+            time=3600,
+        )
+
         return forecast
 
     def __validate_provider_response(
