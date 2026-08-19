@@ -41,6 +41,7 @@ def build_service(
     service = object.__new__(IntegrationWeatherService)
 
     service._IntegrationWeatherService__open_meteo_integration = integration
+
     service._IntegrationWeatherService__database_info_city_service = (
         FakeDatabaseCityInfoService()
     )
@@ -48,25 +49,7 @@ def build_service(
     return service
 
 
-def test_get_city_info_sends_only_geocoding_parameters(
-    monkeypatch,
-) -> None:
-
-    integration = FakeOpenMeteoIntegration({
-        "results": [{
-            "id": 3461311,
-            "name": "Indaiatuba",
-            "latitude": -23.08842,
-            "longitude": -47.2119,
-            "feature_code": "PPLA2",
-            "country_code": "BR",
-            "timezone": "America/Sao_Paulo",
-        }],
-        "generationtime_ms": 0.2,
-    })
-
-    service = build_service(integration)
-
+def mock_redis(monkeypatch):
     monkeypatch.setattr(
         "app.service.integration_weather_service.get_data_redis",
         lambda key: None,
@@ -76,6 +59,30 @@ def test_get_city_info_sends_only_geocoding_parameters(
         "app.service.integration_weather_service.set_data_redis",
         lambda key, value, time: None,
     )
+
+
+def test_get_city_info_sends_only_geocoding_parameters(
+    monkeypatch,
+) -> None:
+
+    integration = FakeOpenMeteoIntegration({
+        "results": [
+            {
+                "id": 3461311,
+                "name": "Indaiatuba",
+                "latitude": -23.08842,
+                "longitude": -47.2119,
+                "feature_code": "PPLA2",
+                "country_code": "BR",
+                "timezone": "America/Sao_Paulo",
+            }
+        ],
+        "generationtime_ms": 0.2,
+    })
+
+    service = build_service(integration)
+
+    mock_redis(monkeypatch)
 
     asyncio.run(
         service.get_city_info(
@@ -101,15 +108,12 @@ def test_get_city_info_raises_city_not_found_when_results_are_absent(
 ) -> None:
 
     integration = FakeOpenMeteoIntegration({
-        "generationtime_ms": 0.2
+        "generationtime_ms": 0.2,
     })
 
     service = build_service(integration)
 
-    monkeypatch.setattr(
-        "app.service.integration_weather_service.get_data_redis",
-        lambda key: None,
-    )
+    mock_redis(monkeypatch)
 
     with pytest.raises(CityNotFoundException):
         asyncio.run(
