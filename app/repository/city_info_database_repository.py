@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 from typing import Callable
 
@@ -41,6 +42,21 @@ class CityInfoDatabaseRepository():
                 db.session.commit()
                 db.session.refresh(city_entity)
                 return CityInfoDatabaseModel.model_validate(city_entity)
+            except SQLAlchemyError as error:
+                db.session.rollback()
+                raise
+
+    def delete_city_info_expired(
+        self,
+        date: datetime
+    ) -> bool:
+        with self.__connection_handler_factory() as db:
+            try:
+                deleted = db.session.query(CityInfoDatabaseEntity)\
+                    .filter(CityInfoDatabaseEntity.expires_at < date)\
+                    .delete()
+                db.session.commit()
+                return bool(deleted)
             except SQLAlchemyError as error:
                 db.session.rollback()
                 raise

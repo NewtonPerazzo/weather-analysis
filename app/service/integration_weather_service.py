@@ -9,7 +9,7 @@ from app.exceptions.exceptions import (
     InvalidWeatherProviderResponseException,
 )
 from app.model.city_info_model import CityForecastInfoParams, CityInfoModel, CityInfoParams, CityInfoResponseModel, ForecastResponseModel, SearchCityRequest
-from app.service.database_city_info_service import DatabaseCityInfo
+from app.service.database_city_info_service import data_base_info_service
 from config.settings import get_settings
 from app.dependencies import get_open_meteo_integration
 
@@ -22,7 +22,7 @@ class IntegrationWeatherService():
     def __init__(self) -> None:
         settings = get_settings()
         self.__open_meteo_integration = get_open_meteo_integration(settings)
-        self.__database_info_city_service = DatabaseCityInfo()
+        self.__database_info_city_service = data_base_info_service
 
     async def get_city_info(
         self,

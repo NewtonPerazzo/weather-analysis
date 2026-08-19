@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from app.exceptions.exceptions import CityInfoAlreadyExistsInDBException
 from app.model.city_info_database_model import CityInfoDatabaseModel
 from app.model.city_info_model import CityInfoModel
@@ -5,7 +7,7 @@ from app.repository.city_info_database_repository import CityInfoDatabaseReposit
 from app.dependencies import get_connection_handler
 
 
-class DatabaseCityInfo():
+class DatabaseCityInfoService():
     def __init__(self):
         self._city_info_repository = CityInfoDatabaseRepository(
             connection_handler_factory=get_connection_handler,
@@ -22,3 +24,9 @@ class DatabaseCityInfo():
     def get_city_info_by_key(self, key: str) -> CityInfoDatabaseModel  | None:
         response = self._city_info_repository.select_by_id(city_id=key)
         return response
+
+    def delete_city_info_expired(self) -> bool:
+        response = self._city_info_repository.delete_city_info_expired(date=datetime.now(timezone.utc))
+        return response
+
+data_base_info_service = DatabaseCityInfoService()
