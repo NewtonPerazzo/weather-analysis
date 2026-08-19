@@ -103,23 +103,31 @@ class AnalysisWeatherService():
         current: CurrentWeatherModel,
         hourly: HourlyWeatherModel,
     ) -> CityHourAnalysisData:
-        current_temperature = cast(float, current.temperature_2m)
-        current_datetime = datetime.fromisoformat(current.time)
-        current_hour_index = next(
-            index
-            for index, hourly_time in enumerate(hourly.time)
-            if datetime.fromisoformat(hourly_time).date() == current_datetime.date()
-            and datetime.fromisoformat(hourly_time).hour == current_datetime.hour
-        )
-        current_rain_probability = cast(
-            float,
-            hourly.precipitation_probability[current_hour_index],
-        )
-        current_wind_speed = cast(float, current.wind_speed_10m)
-        current_humidity = cast(int, current.relative_humidity_2m)
-        current_apparent_temperature = cast(float, current.apparent_temperature)
 
-        result: ScoreResponseModel = calculate_weather_score(
+        current_datetime = datetime.fromisoformat(current.time)
+
+        current_hour_index = None
+
+        for index, hourly_time in enumerate(hourly.time):
+            parsed_time = datetime.fromisoformat(hourly_time)
+
+            if (
+                parsed_time.date() == current_datetime.date()
+                and parsed_time.hour == current_datetime.hour
+            ):
+                current_hour_index = index
+                break
+
+        if current_hour_index is None:
+            raise InvalidWeatherProviderResponseException()
+
+        current_temperature = current.temperature_2m
+        current_rain_probability = hourly.precipitation_probability[current_hour_index]
+        current_wind_speed = current.wind_speed_10m
+        current_humidity = current.relative_humidity_2m
+        current_apparent_temperature = current.apparent_temperature
+
+        result = calculate_weather_score(
             temperature=current_temperature,
             rain_probability=current_rain_probability,
             wind_speed=current_wind_speed,
@@ -127,7 +135,7 @@ class AnalysisWeatherService():
         )
 
         return CityHourAnalysisData(
-            hour=datetime.fromisoformat(current.time).time().strftime('%H:%M'),
+            hour=current_datetime.time().strftime("%H:%M"),
             score=result.score,
             reason=result.reasons,
             info=CityHourAnalysisInfo(
@@ -136,25 +144,25 @@ class AnalysisWeatherService():
                 wind_speed=current_wind_speed,
                 humidity=current_humidity,
                 apparent_temperature=current_apparent_temperature,
-            )
+            ),
         )
-        
-    def get_hourly_score_info_list(self, hourly_list: HourlyWeatherModel) -> list[CityHourAnalysisData]:
+
+    def get_hourly_score_info_list(
+        self,
+        hourly_list: HourlyWeatherModel,
+    ) -> list[CityHourAnalysisData]:
+
         response: list[CityHourAnalysisData] = []
 
-        for i in range(len(hourly_list.time)):
-            hour = hourly_list.time[i]
+        for index, hourly_time in enumerate(hourly_list.time):
 
-            temperature = cast(float, hourly_list.temperature_2m[i])
-            rain_probability = cast(
-                float,
-                hourly_list.precipitation_probability[i],
-            )
-            wind_speed = cast(float, hourly_list.wind_speed_10m[i])
-            humidity = cast(int, hourly_list.relative_humidity_2m[i])
-            apparent_temperature = cast(float, hourly_list.apparent_temperature[i])
+            temperature = hourly_list.temperature_2m[index]
+            rain_probability = hourly_list.precipitation_probability[index]
+            wind_speed = hourly_list.wind_speed_10m[index]
+            humidity = hourly_list.relative_humidity_2m[index]
+            apparent_temperature = hourly_list.apparent_temperature[index]
 
-            result: ScoreResponseModel = calculate_weather_score(
+            result = calculate_weather_score(
                 temperature=temperature,
                 rain_probability=rain_probability,
                 wind_speed=wind_speed,
@@ -163,7 +171,9 @@ class AnalysisWeatherService():
 
             response.append(
                 CityHourAnalysisData(
-                    hour=datetime.fromisoformat(hour).time().strftime('%H:%M'),
+                    hour=datetime.fromisoformat(hourly_time)
+                        .time()
+                        .strftime("%H:%M"),
                     score=result.score,
                     reason=result.reasons,
                     info=CityHourAnalysisInfo(
@@ -171,13 +181,13 @@ class AnalysisWeatherService():
                         rain_probability=rain_probability,
                         wind_speed=wind_speed,
                         humidity=humidity,
-                        apparent_temperature=apparent_temperature
-                    )
+                        apparent_temperature=apparent_temperature,
+                    ),
                 )
             )
-        
-        return response
 
+        return response
+    
     def get_hourly_score_info_other_day(
         self,
         city_forecast: ForecastResponseModel,

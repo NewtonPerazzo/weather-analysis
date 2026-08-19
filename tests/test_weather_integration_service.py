@@ -15,20 +15,43 @@ class FakeOpenMeteoIntegration:
 
     async def get_city_info(self, params: dict) -> httpx.Response:
         self.received_params = params
+
         return httpx.Response(
             status_code=200,
             json=self.response_data,
-            request=httpx.Request("GET", "https://open-meteo.test/v1/search"),
+            request=httpx.Request(
+                "GET",
+                "https://open-meteo.test/v1/search",
+            ),
         )
 
 
-def build_service(integration: FakeOpenMeteoIntegration) -> IntegrationWeatherService:
+class FakeDatabaseCityInfoService:
+    def get_city_info_by_key(self, key: str):
+        return None
+
+    def add_city_info(self, city, key: str):
+        return city
+
+
+def build_service(
+    integration: FakeOpenMeteoIntegration,
+) -> IntegrationWeatherService:
+
     service = object.__new__(IntegrationWeatherService)
+
     service._IntegrationWeatherService__open_meteo_integration = integration
+    service._IntegrationWeatherService__database_info_city_service = (
+        FakeDatabaseCityInfoService()
+    )
+
     return service
 
 
-def test_get_city_info_sends_only_geocoding_parameters() -> None:
+def test_get_city_info_sends_only_geocoding_parameters(
+    monkeypatch,
+) -> None:
+
     integration = FakeOpenMeteoIntegration({
         "results": [{
             "id": 3461311,
@@ -41,13 +64,28 @@ def test_get_city_info_sends_only_geocoding_parameters() -> None:
         }],
         "generationtime_ms": 0.2,
     })
+
     service = build_service(integration)
 
-    asyncio.run(service.get_city_info(SearchCityRequest(
-        name="Indaiatuba",
-        country_code="BR",
-        forecast_days=16,
-    )))
+    monkeypatch.setattr(
+        "app.service.integration_weather_service.get_data_redis",
+        lambda key: None,
+    )
+
+    monkeypatch.setattr(
+        "app.service.integration_weather_service.set_data_redis",
+        lambda key, value, time: None,
+    )
+
+    asyncio.run(
+        service.get_city_info(
+            SearchCityRequest(
+                name="Indaiatuba",
+                country_code="BR",
+                forecast_days=16,
+            )
+        )
+    )
 
     assert integration.received_params == {
         "name": "Indaiatuba",
@@ -58,12 +96,27 @@ def test_get_city_info_sends_only_geocoding_parameters() -> None:
     }
 
 
-def test_get_city_info_raises_city_not_found_when_results_are_absent() -> None:
-    integration = FakeOpenMeteoIntegration({"generationtime_ms": 0.2})
+def test_get_city_info_raises_city_not_found_when_results_are_absent(
+    monkeypatch,
+) -> None:
+
+    integration = FakeOpenMeteoIntegration({
+        "generationtime_ms": 0.2
+    })
+
     service = build_service(integration)
 
+    monkeypatch.setattr(
+        "app.service.integration_weather_service.get_data_redis",
+        lambda key: None,
+    )
+
     with pytest.raises(CityNotFoundException):
-        asyncio.run(service.get_city_info(SearchCityRequest(
-            name="Unknown city",
-            country_code="BR",
-        )))
+        asyncio.run(
+            service.get_city_info(
+                SearchCityRequest(
+                    name="Unknown city",
+                    country_code="BR",
+                )
+            )
+        )
