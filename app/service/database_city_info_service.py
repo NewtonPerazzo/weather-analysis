@@ -17,7 +17,8 @@ class DatabaseCityInfoService():
         if self._city_info_repository.select_by_id(city_id=key):
             raise CityInfoAlreadyExistsInDBException(city=key)
 
-        city_formated = city.id = key
+        city.id = key
+        city_formated = city
         response = self._city_info_repository.insert(city=city_formated)
         return response
 

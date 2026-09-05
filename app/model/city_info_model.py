@@ -1,6 +1,6 @@
 from typing import TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 class SearchCityRequest(BaseModel):
     name: str
@@ -24,6 +24,11 @@ class CityInfoModel(BaseModel):
     population: int | None = None
     country: str | None = None
     admin1: str | None = None
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def convert_id_to_string(cls, value):
+        return str(value)
 
 
 class CityInfoResponseModel(BaseModel):
