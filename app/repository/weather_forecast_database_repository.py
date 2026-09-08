@@ -41,6 +41,19 @@ class DatabaseWeatherForecastRepository():
                 forecast.forecast_data
             )
 
+    def all_get_forecast(
+        self,
+    ) -> list[ForecastResponseModel] | None:
+        with self.__connection_handler_factory() as db:
+            forecasts = db.session\
+                .query(WeatherForecastDatabaseEntity)\
+                .all()
+                
+            if not forecasts:
+                return None
+
+            return forecasts
+
     def add_forecast(
         self,
         city_id: str,
@@ -76,3 +89,24 @@ class DatabaseWeatherForecastRepository():
             )
 
             db.session.commit()
+
+    def get_forecast_by_city_id(
+            self,
+            city_id: str,
+        ) -> ForecastResponseModel | None:
+            print(city_id)
+            with self.__connection_handler_factory() as db:
+                forecast = (
+                    db.session
+                    .query(WeatherForecastDatabaseEntity)
+                    .filter(
+                        WeatherForecastDatabaseEntity.city_id == city_id,
+                    )
+                    .first()
+                )
+          
+                if not forecast:
+                    return None
+    
+                return forecast
+    

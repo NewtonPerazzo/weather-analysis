@@ -7,7 +7,9 @@ class Settings(BaseSettings):
     open_meteo_forecast_url: str
     open_meteo_archive_url: str
     database_url: str
+    rabbitmq_url: str
     redis_url: str = "redis://redis:6379/0"
+    reports_dir: str = "/var/lib/weather-reports"
 
     model_config = SettingsConfigDict(
         env_file=".env",

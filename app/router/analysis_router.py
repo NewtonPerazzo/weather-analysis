@@ -25,7 +25,6 @@ async def get_forecast_analysis(
         country_code,
     )
 
-
     if not city or not country_code:
         raise HTTPException(status_code=400, detail="City and country code are required parameters.")
     
@@ -51,4 +50,14 @@ async def get_forecast_hour_analysis(
         day=day,
         filter_time=filter
     )
+    return response
+
+@analysis_router.post("/reports")
+def create_report(city_key: str):
+    response = analysis_weather_service.generate_report(city_key)
+    return response
+
+@analysis_router.get("/reports")
+def get_report(task_id: str):
+    response = analysis_weather_service.get_report_generated(task_id)
     return response

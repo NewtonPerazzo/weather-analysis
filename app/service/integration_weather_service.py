@@ -31,7 +31,7 @@ class IntegrationWeatherService():
         city_request: SearchCityRequest
     ) -> CityInfoModel:
         redis_key = f'{city_request.name.lower().replace(" ", "_").strip()}_{city_request.country_code.lower().strip()}_{city_request.forecast_days}{city_request.count}'
-
+        print('redis_key: ', redis_key)
         cached_data = get_data_redis(redis_key)
 
         if cached_data:
@@ -76,11 +76,11 @@ class IntegrationWeatherService():
         )
 
         forecast_redis_key = (
-            f"forecast:"
             f"{city_request.name.lower().replace(' ', '_').strip()}:"
             f"{city_request.country_code.lower().strip()}:"
             f"{city_request.forecast_days}"
         )
+        print('forecast_redis_key: ', forecast_redis_key)
 
         cached_forecast = get_data_redis(
             key=forecast_redis_key

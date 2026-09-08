@@ -50,4 +50,19 @@ class DatabaseWeatherForecastService():
     def delete_expired_forecasts(self) -> None:
         self.__weather_forecast_repository.delete_expired_forecasts()
 
+    def get_forecast_by_city_id(
+        self,
+        city_id: str,
+    ) -> ForecastResponseModel | None:
+        forecast = self.__weather_forecast_repository.get_forecast_by_city_id(
+            city_id=city_id
+        )
+
+        if not forecast:
+            return None
+
+        return ForecastResponseModel.model_validate(
+            forecast.forecast_data
+        )
+
 database_weather_forecast_service = DatabaseWeatherForecastService()

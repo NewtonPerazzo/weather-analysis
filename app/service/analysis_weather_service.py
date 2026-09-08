@@ -1,10 +1,19 @@
+from pathlib import Path
+
+from fastapi import HTTPException
+from fastapi.responses import FileResponse
+
 from app.exceptions.exceptions import ForecastDateUnavailableException, InvalidWeatherProviderResponseException
 from app.service.integration_weather_service import integration_weather_service
+from app.service.database_weather_forecast_service import database_weather_forecast_service
 from datetime import date, datetime, timedelta, time
-from typing import cast
-from app.model.city_analysis_model import CityForecastAnalysisResponseModel, CityHourAnalysisData, CityHourAnalysisResponseModel, CityHourAnalysisInfo, FilterTime, ScoreResponseModel
+
+from app.model.city_analysis_model import CityForecastAnalysisResponseModel, CityHourAnalysisData, CityHourAnalysisResponseModel, CityHourAnalysisInfo, FilterTime
 from app.model.city_info_model import CurrentWeatherModel, ForecastResponseModel, HourlyWeatherModel, SearchCityRequest
+from app.tasks.report_tasks import generate_report_task
 from app.util.score import calculate_weather_score
+
+from config.celery import celery_app
 
 class AnalysisWeatherService():
     def __init__(self) -> None:
@@ -269,5 +278,67 @@ class AnalysisWeatherService():
 
         if 0 in list_lengths or len(list_lengths) != 1:
             raise InvalidWeatherProviderResponseException()
-        
+    
+    def generate_report(self, city_key: str):
+        data = database_weather_forecast_service.get_forecast_by_city_id(city_id=city_key)
+        if not data:
+            raise HTTPException(status_code=404, detail="City forecast not found")
+        formatted_data = {
+            **data.model_dump(),
+            "city_key": city_key,
+        }
+
+        task = generate_report_task.delay(data=formatted_data)
+
+        return {
+            "task_id": str(task.id),
+            "status": "processing",
+        }
+
+
+    def get_report_generated(self, task_id: str):
+        task = celery_app.AsyncResult(task_id)
+
+        if task.state == "PENDING":
+            return {
+                "task_id": task_id,
+                "status": "processing",
+            }
+
+        if task.state == "FAILURE":
+            return {
+                "task_id": task_id,
+                "status": "failed",
+                "error": str(task.info),
+            }
+
+        if task.state == "SUCCESS":
+            result = task.result
+            file_name = result.get("file") if isinstance(result, dict) else None
+
+            if not isinstance(file_name, str) or not file_name:
+                raise HTTPException(
+                    status_code=500,
+                    detail="The report completed without a downloadable file",
+                )
+
+            file_path = Path(file_name)
+
+            if not file_path.exists():
+                raise HTTPException(
+                    status_code=404,
+                    detail="Report file not found"
+                )
+
+            return FileResponse(
+                path=file_path,
+                media_type="application/pdf",
+                filename=result["report"],
+            )                          
+     
+
+        return {
+            "task_id": task.id,
+            "status": "processing",
+        }
 analysis_weather_service = AnalysisWeatherService()

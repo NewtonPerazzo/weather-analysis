@@ -30,11 +30,41 @@ services:
       - "8000:8080"
     volumes:
       - .:/usr/local/app
+      - reports:/var/lib/weather-reports
     depends_on:
       db:
         condition: service_healthy
     command: >
       sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload"
+
+  worker:
+    build: .
+    working_dir: /usr/local/app
+    user: "0:0"
+
+    env_file:
+      - .env
+
+    volumes:
+      - .:/usr/local/app
+      - reports:/var/lib/weather-reports
+
+    command: >
+      celery -A config.celery:celery_app
+      worker
+      --loglevel=info
+      --pool=solo
+
+    depends_on:
+      - rabbitmq
+      - redis
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
 
   redis:
     image: redis:alpine
@@ -44,3 +74,4 @@ services:
 
 volumes:
   mysql_data:
+  reports:
