@@ -279,13 +279,46 @@ class AnalysisWeatherService():
         if 0 in list_lengths or len(list_lengths) != 1:
             raise InvalidWeatherProviderResponseException()
     
-    def generate_report(self, city_key: str):
+    def generate_report(
+        self,
+        city_key: str,
+        day: date | None = None,
+        filter_time: FilterTime | None = None,
+    ) -> dict:
         data = database_weather_forecast_service.get_forecast_by_city_id(city_id=city_key)
         if not data:
             raise HTTPException(status_code=404, detail="City forecast not found")
+
+        hourly_data = data.hourly.model_dump(mode="json")
+        included_indexes = [
+            index
+            for index, hourly_time in enumerate(hourly_data["time"])
+            if self._is_hour_in_report_filter(
+                hourly_time=hourly_time,
+                day=day,
+                filter_time=filter_time,
+            )
+        ]
+        filtered_hourly_data = {
+            field: [values[index] for index in included_indexes]
+            for field, values in hourly_data.items()
+        }
+
+        current_data = data.current.model_dump(mode="json") if day is None else None
+        if current_data and filter_time:
+            current_hour = datetime.fromisoformat(current_data["time"]).time().strftime("%H:%M")
+            if not self._get_is_filter_ranger(current_hour, filter_time):
+                current_data = None
+
         formatted_data = {
-            **data.model_dump(),
+            **data.model_dump(mode="json"),
             "city_key": city_key,
+            "hourly": filtered_hourly_data,
+            "current": current_data,
+            "filters": {
+                "day": day.isoformat() if day else None,
+                "period": filter_time,
+            },
         }
 
         task = generate_report_task.delay(data=formatted_data)
@@ -294,6 +327,25 @@ class AnalysisWeatherService():
             "task_id": str(task.id),
             "status": "processing",
         }
+
+    def _is_hour_in_report_filter(
+        self,
+        hourly_time: str,
+        day: date | None,
+        filter_time: FilterTime | None,
+    ) -> bool:
+        parsed_time = datetime.fromisoformat(hourly_time)
+
+        if day and parsed_time.date() != day:
+            return False
+
+        if filter_time:
+            return self._get_is_filter_ranger(
+                parsed_time.time().strftime("%H:%M"),
+                filter_time,
+            )
+
+        return True
 
 
     def get_report_generated(self, task_id: str):

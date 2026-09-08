@@ -16,14 +16,25 @@ class PDFGenerator:
         self.output_dir = Path(get_settings().reports_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    def create_pdf(self, city_key: str, hourly_data: list[dict], current_conditions: dict | None) -> str:
-        file_path = self.output_dir / f"weather_report_{city_key}.pdf"
+    def create_pdf(
+        self,
+        city_key: str,
+        hourly_data: list[dict],
+        current_conditions: dict | None,
+        filters: dict[str, str | None],
+        report_name: str,
+    ) -> str:
+        file_path = self.output_dir / report_name
         document = SimpleDocTemplate(str(file_path), pagesize=A4, leftMargin=1.5 * cm, rightMargin=1.5 * cm, topMargin=1.5 * cm, bottomMargin=1.5 * cm)
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle("ReportTitle", parent=styles["Title"], alignment=TA_CENTER, textColor=colors.HexColor("#075985"))
         content = [
             Paragraph("Weather Forecast Report", title_style),
             Paragraph(f"Location key: {city_key}", styles["Normal"]),
+            Paragraph(
+                f"Applied filters: date = {filters.get('day') or 'all'}, period = {filters.get('period') or 'all'}",
+                styles["Normal"],
+            ),
             Paragraph(f"Generated at: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}", styles["Normal"]),
             Spacer(1, 0.5 * cm),
         ]
