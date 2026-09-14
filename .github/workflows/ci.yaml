@@ -53,6 +53,7 @@ jobs:
           DATABASE_URL: mysql+pymysql://ci_user:ci_password@localhost:3306/weather_analysis_test
           REDIS_URL: redis://localhost:6379/0
           RABBITMQ_URL: amqp://guest:guest@localhost:5672//
+          REPORTS_DIR: /tmp/weather-reports
           IMAGE_NAME: ghcr.io/newtonperazzo/weather-analysis
         run: python -m pytest
 
