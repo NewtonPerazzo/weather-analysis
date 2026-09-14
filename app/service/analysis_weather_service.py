@@ -10,7 +10,7 @@ from datetime import date, datetime, timedelta, time
 
 from app.model.city_analysis_model import CityForecastAnalysisResponseModel, CityHourAnalysisData, CityHourAnalysisResponseModel, CityHourAnalysisInfo, FilterTime
 from app.model.city_info_model import CurrentWeatherModel, ForecastResponseModel, HourlyWeatherModel, SearchCityRequest
-from app.tasks.report_tasks import generate_report_task
+from app.tasks.report_tasks import generate_spreadsheet_task
 from app.util.score import calculate_weather_score
 
 from config.celery import celery_app
@@ -282,6 +282,7 @@ class AnalysisWeatherService():
     def generate_report(
         self,
         city_key: str,
+        city_name: str | None = None,
         day: date | None = None,
         filter_time: FilterTime | None = None,
     ) -> dict:
@@ -313,6 +314,7 @@ class AnalysisWeatherService():
         formatted_data = {
             **data.model_dump(mode="json"),
             "city_key": city_key,
+            "city_name": city_name or city_key,
             "hourly": filtered_hourly_data,
             "current": current_data,
             "filters": {
@@ -321,7 +323,7 @@ class AnalysisWeatherService():
             },
         }
 
-        task = generate_report_task.delay(data=formatted_data)
+        task = generate_spreadsheet_task.delay(data=formatted_data)
 
         return {
             "task_id": str(task.id),
@@ -384,9 +386,9 @@ class AnalysisWeatherService():
 
             return FileResponse(
                 path=file_path,
-                media_type="application/pdf",
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 filename=result["report"],
-            )                          
+            )
      
 
         return {

@@ -1,12 +1,12 @@
-from app.pdf.pdf_generator import pdf_generator
+from app.spreadsheet.spreadsheet_generator import spreadsheet_generator
 from config.celery import celery_app
 
 
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
-def generate_report_task(self, data: dict) -> dict:
+def generate_spreadsheet_task(self, data: dict) -> dict:
     city_key = data.get("city_key", "unknown")
+    city_name = data.get("city_name", city_key)
     hourly = data["hourly"]
-    current = data["current"]
     filters = data.get("filters", {})
     hourly_data = [
         {
@@ -18,24 +18,14 @@ def generate_report_task(self, data: dict) -> dict:
         }
         for index in range(len(hourly["time"]))
     ]
-    current_conditions = (
-        {
-            "temperature": current["temperature_2m"],
-            "humidity": current["relative_humidity_2m"],
-            "wind_speed": current["wind_speed_10m"],
-            "weather_code": current["weather_code"],
-        }
-        if current
-        else None
-    )
     report_suffix = "_".join(
         value for value in (filters.get("day"), filters.get("period")) if value
     )
-    report_name = f"weather_report_{city_key}{f'_{report_suffix}' if report_suffix else ''}.pdf"
-    file_path = pdf_generator.create_pdf(
+    report_name = f"weather_report_{city_key}{f'_{report_suffix}' if report_suffix else ''}.xlsx"
+    file_path = spreadsheet_generator.create_spreadsheet(
+        city_name=city_name,
         city_key=city_key,
         hourly_data=hourly_data,
-        current_conditions=current_conditions,
         filters=filters,
         report_name=report_name,
     )

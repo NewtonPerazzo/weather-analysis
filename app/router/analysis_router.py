@@ -55,11 +55,13 @@ async def get_forecast_hour_analysis(
 @analysis_router.post("/reports")
 def create_report(
     city_key: str,
+    city_name: str | None = None,
     day: date | None = None,
     filter: FilterTime | None = None,
 ):
     response = analysis_weather_service.generate_report(
         city_key=city_key,
+        city_name=city_name,
         day=day,
         filter_time=filter,
     )
