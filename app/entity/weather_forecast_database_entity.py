@@ -1,7 +1,6 @@
 from datetime import datetime
 from config.base import Base
-from sqlalchemy import BigInteger, Integer, String, DateTime
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import BigInteger, Integer, String, DateTime, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -22,7 +21,7 @@ class WeatherForecastDatabaseEntity(Base):
         nullable=False,
     )
     forecast_data: Mapped[dict] = mapped_column(
-        JSONB,
+        JSON,
         nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(
