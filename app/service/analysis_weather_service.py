@@ -363,7 +363,8 @@ class AnalysisWeatherService():
             return {
                 "task_id": task_id,
                 "status": "failed",
-                "error": str(task.info),
+                "error": "report_generation_failed",
+                "message": "The report could not be generated.",
             }
 
         if task.state == "SUCCESS":
